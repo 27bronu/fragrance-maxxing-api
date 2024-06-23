@@ -34,13 +34,15 @@ const storage = multer.diskStorage({
 const upload = multer({ storage });
 
 // creating upload endpoint for images
-app.use("/images", express.static("upload/images"));
+
 app.post("/upload", upload.single("product"), (req, res) => {
   res.json({
     success: 1,
-    image_url: `https://fragrance-maxxing-api.onrender.com/images/${req.file.filename}`,
+    image_url: `/images/${req.file.filename}`,
   });
 });
+
+app.use("/images", express.static("upload/images"));
 
 // schema for creating products
 const ProductSchema = new mongoose.Schema({
