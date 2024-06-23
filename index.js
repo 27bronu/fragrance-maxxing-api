@@ -2,6 +2,7 @@ import express from 'express';
 import mongoose from 'mongoose';
 import jwt from 'jsonwebtoken';
 import multer from 'multer';
+import path from 'path';
 import cors from 'cors';
 import dotenv from 'dotenv';
 dotenv.config();
@@ -22,24 +23,22 @@ app.get("/", (req, res) => {
   res.send("Express App is running");
 });
 
-// multer memory storage configuration
-const storage = multer.memoryStorage();
+// image storage engine
+const storage = multer.diskStorage({
+  destination: "./upload/images",
+  filename: (req, file, cb) => {
+    cb(null, `${file.fieldname}_${Date.now()}${path.extname(file.originalname)}`);
+  },
+});
+
 const upload = multer({ storage });
 
 // creating upload endpoint for images
+app.use("/images", express.static("upload/images"));
 app.post("/upload", upload.single("product"), (req, res) => {
-  if (!req.file) {
-    return res.status(400).json({ success: false, errors: "No file uploaded" });
-  }
-
-  // Create a buffer from uploaded file
-  const imageBuffer = req.file.buffer;
-
-  const imageBase64 = imageBuffer.toString('base64');
-
   res.json({
-    success: true,
-    image_url: `data:${req.file.mimetype};base64,${imageBase64}`,
+    success: 1,
+    image_url: `https://fragrance-maxxing-api.onrender.com/images/${req.file.filename}`,
   });
 });
 
@@ -54,7 +53,7 @@ const ProductSchema = new mongoose.Schema({
     required: true,
   },
   image: {
-    type: Buffer,
+    type: String,
     required: true,
   },
   category: {
@@ -94,12 +93,10 @@ app.post("/addproduct", async (req, res) => {
   const products = await Product.find({});
   let id = products.length > 0 ? products[products.length - 1].id + 1 : 1;
 
-  const imageBuffer = Buffer.from(req.body.image, 'base64');
-
   const product = new Product({
     id,
     name: req.body.name,
-    image: imageBuffer,
+    image: req.body.image,
     category: req.body.category,
     new_price: req.body.new_price,
     old_price: req.body.old_price,
