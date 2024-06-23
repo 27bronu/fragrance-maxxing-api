@@ -27,7 +27,7 @@ app.get("/", (req, res) => {
 const storage = multer.diskStorage({
   destination: "./upload/images",
   filename: (req, file, cb) => {
-    cb(null, `${file.fieldname}_${Date.now()}${path.extname(file.originalname)}`);
+    return cb(null, `${file.fieldname}_${Date.now()}${path.extname(file.originalname)}`);
   },
 });
 
@@ -53,7 +53,7 @@ const ProductSchema = new mongoose.Schema({
     required: true,
   },
   image: {
-    type: String,
+    type: String, 
     required: true,
   },
   category: {
