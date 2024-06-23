@@ -54,7 +54,7 @@ const ProductSchema = new mongoose.Schema({
     required: true,
   },
   image: {
-    type: String,
+    type: Buffer,
     required: true,
   },
   category: {
@@ -99,7 +99,7 @@ app.post("/addproduct", async (req, res) => {
   const product = new Product({
     id,
     name: req.body.name,
-    image: req.body.image,
+    image: imageBuffer,
     category: req.body.category,
     new_price: req.body.new_price,
     old_price: req.body.old_price,
