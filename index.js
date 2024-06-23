@@ -2,7 +2,6 @@ import express from 'express';
 import mongoose from 'mongoose';
 import jwt from 'jsonwebtoken';
 import multer from 'multer';
-import path from 'path';
 import cors from 'cors';
 import dotenv from 'dotenv';
 dotenv.config();
@@ -23,7 +22,7 @@ app.get("/", (req, res) => {
   res.send("Express App is running");
 });
 
-// Multer memory storage configuration
+// multer memory storage configuration
 const storage = multer.memoryStorage();
 const upload = multer({ storage });
 
@@ -36,7 +35,6 @@ app.post("/upload", upload.single("product"), (req, res) => {
   // Create a buffer from uploaded file
   const imageBuffer = req.file.buffer;
 
-  // Assuming you want to store the image in base64 format in MongoDB
   const imageBase64 = imageBuffer.toString('base64');
 
   res.json({
