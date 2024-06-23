@@ -5,6 +5,8 @@ import multer from 'multer';
 import path from 'path';
 import cors from 'cors';
 import dotenv from 'dotenv';
+import fs from 'fs';
+
 dotenv.config();
 
 const port = 4000;
@@ -13,19 +15,25 @@ const app = express();
 app.use(express.json());
 app.use(cors());
 
+// Ensure the upload directory exists
+const uploadDir = path.join(__dirname, 'upload/images');
+if (!fs.existsSync(uploadDir)) {
+  fs.mkdirSync(uploadDir, { recursive: true });
+}
+
 // connection with mongodb
-mongoose.connect(
-  process.env.MONGODB_URI
-);
+mongoose.connect(process.env.MONGODB_URI);
 
 // api creation
 app.get("/", (req, res) => {
   res.send("Express App is running");
 });
 
-// image storage engine
+// Image storage engine
 const storage = multer.diskStorage({
-  destination: "./upload/images",
+  destination: (req, file, cb) => {
+    cb(null, uploadDir);
+  },
   filename: (req, file, cb) => {
     cb(null, `${file.fieldname}_${Date.now()}${path.extname(file.originalname)}`);
   },
@@ -33,13 +41,43 @@ const storage = multer.diskStorage({
 
 const upload = multer({ storage });
 
-// creating upload endpoint for images
-app.use("/images", express.static("upload/images"));
-app.post("/upload", upload.single("product"), (req, res) => {
-  res.json({
-    success: 1,
-    image_url: `https://fragrance-maxxing-api.onrender.com/images/${req.file.filename}`,
-  });
+// Serving static files
+app.use('/images', express.static(uploadDir));
+
+// Upload endpoint for images and storing product info in DB
+app.post('/upload', upload.single('product'), async (req, res) => {
+  if (req.file) {
+    const imageUrl = `https://fragrance-maxxing-api.onrender.com/images/${req.file.filename}`;
+
+    // Assuming you send the product data along with the image upload request
+    const { name, category, new_price, old_price, size, brand } = req.body;
+
+    const products = await Product.find({});
+    let id = products.length > 0 ? products[products.length - 1].id + 1 : 1;
+
+    const product = new Product({
+      id,
+      name,
+      image: imageUrl,
+      category,
+      new_price,
+      old_price,
+      size,
+      brand,
+      available: true,
+      date: new Date(),
+    });
+
+    await product.save();
+
+    res.json({
+      success: 1,
+      image_url: imageUrl,
+      product,
+    });
+  } else {
+    res.status(400).json({ success: 0, message: 'Image upload failed' });
+  }
 });
 
 // schema for creating products
@@ -88,7 +126,7 @@ const ProductSchema = new mongoose.Schema({
 
 const Product = mongoose.model("Product", ProductSchema);
 
-// add products
+// Add products
 app.post("/addproduct", async (req, res) => {
   const products = await Product.find({});
   let id = products.length > 0 ? products[products.length - 1].id + 1 : 1;
@@ -112,7 +150,7 @@ app.post("/addproduct", async (req, res) => {
   });
 });
 
-// remove products
+// Remove products
 app.post("/removeproduct", async (req, res) => {
   await Product.findOneAndDelete({ id: req.body.id });
   console.log("Removed");
@@ -122,7 +160,7 @@ app.post("/removeproduct", async (req, res) => {
   });
 });
 
-// get all products
+// Get all products
 app.get("/allproducts", async (req, res) => {
   const products = await Product.find({});
   console.log("All products Fetched");
@@ -152,7 +190,7 @@ const UserSchema = new mongoose.Schema({
 
 const User = mongoose.model("User", UserSchema);
 
-// registering the user
+// Registering the user
 app.post("/signup", async (req, res) => {
   const check = await User.findOne({ email: req.body.email });
   if (check) {
@@ -184,7 +222,7 @@ app.post("/signup", async (req, res) => {
   res.json({ success: true, token });
 });
 
-// endpoint for user login
+// Endpoint for user login
 app.post("/login", async (req, res) => {
   const user = await User.findOne({ email: req.body.email });
   if (user) {
@@ -205,7 +243,7 @@ app.post("/login", async (req, res) => {
   }
 });
 
-// endpoint for latest products
+// Endpoint for latest products
 app.get("/newcollections", async (req, res) => {
   const products = await Product.find({});
   const newcollection = products.slice(-8);
