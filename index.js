@@ -27,7 +27,7 @@ app.get("/", (req, res) => {
 const storage = multer.diskStorage({
   destination: "./upload/images",
   filename: (req, file, cb) => {
-    return cb(null, `${file.fieldname}_${Date.now()}${path.extname(file.originalname)}`);
+   return cb(null, `${file.fieldname}_${Date.now()}${path.extname(file.originalname)}`);
   },
 });
 
@@ -38,7 +38,7 @@ app.use("/images", express.static("upload/images"));
 app.post("/upload", upload.single("product"), (req, res) => {
   res.json({
     success: 1,
-    image_url: `/images/${req.file.filename}`,
+    image_url: `https://fragrance-maxxing-api.onrender.com/images/${req.file.filename}`,
   });
 });
 
@@ -53,7 +53,7 @@ const ProductSchema = new mongoose.Schema({
     required: true,
   },
   image: {
-    type: String, 
+    type: String,
     required: true,
   },
   category: {
