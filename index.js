@@ -2,7 +2,6 @@ import express from 'express';
 import mongoose from 'mongoose';
 import jwt from 'jsonwebtoken';
 import multer from 'multer';
-import { GridFsStorage } from 'multer-gridfs-storage';
 import path from 'path';
 import cors from 'cors';
 import dotenv from 'dotenv';
@@ -12,70 +11,40 @@ const port = 4000;
 const app = express();
 
 app.use(express.json());
+app.use(cors());
 
-const allowedOrigins = ['https://fragrancemaxxing-admin.vercel.app', 'http://localhost:3000'];
-app.use(cors({
-  origin: function(origin, callback) {
-    if (!origin || allowedOrigins.includes(origin)) {
-      callback(null, true);
-    } else {
-      callback(new Error('Not allowed by CORS'));
-    }
-  },
-  methods: ['GET', 'POST', 'PUT', 'DELETE'],
-  allowedHeaders: ['Content-Type', 'Authorization'],
-  credentials: true
-}));
+// connection with mongodb
+mongoose.connect(
+  process.env.MONGODB_URI
+);
 
-app.options('*', cors()); // Handling preflight requests
-
-// Connection with MongoDB
-mongoose.connect(process.env.MONGODB_URI, {
-  useNewUrlParser: true,
-  useUnifiedTopology: true,
+// api creation
+app.get("/", (req, res) => {
+  res.send("Express App is running");
 });
 
-// Create a storage engine for GridFS
-const storage = new GridFsStorage({
-  url: process.env.MONGODB_URI,
-  file: (req, file) => {
-    return {
-      filename: `${file.fieldname}_${Date.now()}${path.extname(file.originalname)}`,
-      bucketName: 'uploads', // collection name
-    };
+// image storage engine
+const storage = multer.diskStorage({
+  destination: "./upload/images",
+  filename: (req, file, cb) => {
+   return cb(null, `${file.fieldname}_${Date.now()}${path.extname(file.originalname)}`);
   },
 });
 
 const upload = multer({ storage });
 
-// Creating upload endpoint for images
+// creating upload endpoint for images
+
 app.post("/upload", upload.single("product"), (req, res) => {
   res.json({
     success: 1,
-    file: req.file,
+    image_url: `https://fragrance-maxxing-api.onrender.com/images/${req.file.filename}`,
   });
 });
 
-// Endpoint to retrieve images from GridFS
-app.get('/images/:filename', async (req, res) => {
-  try {
-    const conn = mongoose.connection;
-    const gfs = new mongoose.mongo.GridFSBucket(conn.db, {
-      bucketName: 'uploads',
-    });
+app.use("/images", express.static("upload/images"));
 
-    const file = await gfs.find({ filename: req.params.filename }).toArray();
-    if (!file || file.length === 0) {
-      return res.status(404).json({ err: 'No file exists' });
-    }
-
-    gfs.openDownloadStreamByName(req.params.filename).pipe(res);
-  } catch (err) {
-    res.status(500).json({ err });
-  }
-});
-
-// Schema for creating products
+// schema for creating products
 const ProductSchema = new mongoose.Schema({
   id: {
     type: Number,
@@ -121,7 +90,7 @@ const ProductSchema = new mongoose.Schema({
 
 const Product = mongoose.model("Product", ProductSchema);
 
-// Add products
+// add products
 app.post("/addproduct", async (req, res) => {
   const products = await Product.find({});
   let id = products.length > 0 ? products[products.length - 1].id + 1 : 1;
@@ -145,7 +114,7 @@ app.post("/addproduct", async (req, res) => {
   });
 });
 
-// Remove products
+// remove products
 app.post("/removeproduct", async (req, res) => {
   await Product.findOneAndDelete({ id: req.body.id });
   console.log("Removed");
@@ -155,14 +124,14 @@ app.post("/removeproduct", async (req, res) => {
   });
 });
 
-// Get all products
+// get all products
 app.get("/allproducts", async (req, res) => {
   const products = await Product.find({});
   console.log("All products Fetched");
   res.send(products);
 });
 
-// Schema for user model
+// schema user model
 const UserSchema = new mongoose.Schema({
   name: {
     type: String,
@@ -185,14 +154,16 @@ const UserSchema = new mongoose.Schema({
 
 const User = mongoose.model("User", UserSchema);
 
-// Registering the user
+// registering the user
 app.post("/signup", async (req, res) => {
   const check = await User.findOne({ email: req.body.email });
   if (check) {
-    return res.status(400).json({
-      success: false,
-      errors: "Existing user found with same email address",
-    });
+    return res
+      .status(400)
+      .json({
+        success: false,
+        errors: "Existing user found with same email address",
+      });
   }
   const cart = {};
   for (let i = 0; i < 300; i++) {
@@ -215,7 +186,7 @@ app.post("/signup", async (req, res) => {
   res.json({ success: true, token });
 });
 
-// Endpoint for user login
+// endpoint for user login
 app.post("/login", async (req, res) => {
   const user = await User.findOne({ email: req.body.email });
   if (user) {
@@ -236,7 +207,7 @@ app.post("/login", async (req, res) => {
   }
 });
 
-// Endpoint for latest products
+// endpoint for latest products
 app.get("/newcollections", async (req, res) => {
   const products = await Product.find({});
   const newcollection = products.slice(-8);
@@ -244,7 +215,7 @@ app.get("/newcollections", async (req, res) => {
   res.send(newcollection);
 });
 
-// Endpoint for popular products
+// endpoint for popular products
 app.get("/popularproducts", async (req, res) => {
   const products = await Product.find({ category: "men" });
   const popularproducts = products.slice(0, 4);
@@ -252,7 +223,7 @@ app.get("/popularproducts", async (req, res) => {
   res.send(popularproducts);
 });
 
-// Middleware to fetch user
+// middleware to fetch user
 const fetchUser = async (req, res, next) => {
   const token = req.header("auth-token");
   if (!token) {
@@ -263,12 +234,14 @@ const fetchUser = async (req, res, next) => {
       req.user = data.user;
       next();
     } catch (error) {
-      res.status(401).send({ errors: "Please authenticate using a valid token" });
+      res
+        .status(401)
+        .send({ errors: "Please authenticate using a valid token" });
     }
   }
 };
 
-// Endpoint for adding products in cartData
+// endpoint for adding products in cartdata
 app.post("/addtocart", fetchUser, async (req, res) => {
   console.log("Added", req.body.itemId);
   const userData = await User.findOne({ _id: req.user.id });
@@ -277,7 +250,7 @@ app.post("/addtocart", fetchUser, async (req, res) => {
   res.send("Added");
 });
 
-// Endpoint for removing cartData
+// endpoint for removing cartData
 app.post("/removefromcart", fetchUser, async (req, res) => {
   console.log("Removed", req.body.itemId);
   const userData = await User.findOne({ _id: req.user.id });
@@ -288,7 +261,7 @@ app.post("/removefromcart", fetchUser, async (req, res) => {
   res.send("Removed");
 });
 
-// Endpoint to get cart data
+// endpoint to get cart data
 app.post('/getcart', fetchUser, async (req, res) => {
   console.log('Get cart');
   const userData = await User.findOne({ _id: req.user.id });
